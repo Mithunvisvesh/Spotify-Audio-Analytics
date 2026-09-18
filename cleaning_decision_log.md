@@ -1,122 +1,122 @@
-# Spotify Audio Analytics — Cleaning Decision Log
-**Phase 1 Deliverable: Data Acquisition & Preprocessing (Person A)**  
-**Target Course Outcome:** CO2 (Preprocessing) — 5 Marks  
-**Downstream Dependents:** Person B (EDA), Person C (Regression Modeling), Person D (Power BI & K-Means Clustering)
+# Spotify Audio Analytics — Data Preprocessing & Decision Log
+**Project Module:** Phase 1: Data Acquisition, Sanitization & Preprocessing  
+**Course Outcome Alignment:** CO2 (Data Ingestion, Cleaning & Feature Transformation)  
+**Dataset Reference:** Spotify Tracks Dataset (114,000 observations)  
 
 ---
 
-## 1. Executive Summary & Row Progression
+## 1. Executive Summary & Observation Progression
 
-| Stage / Step | Starting Rows | Rows Dropped / Affected | Resulting Rows | % Dataset Retained | Key Action / Transformation |
+| Pipeline Stage | Starting Observations | Observations Filtered / Imputed | Resulting Observations | % Dataset Retained | Methodological Action |
 | :--- | :---: | :---: | :---: | :---: | :--- |
-| **0. Raw Dataset** (`dataset.csv`) | 114,000 | 0 | 114,000 | 100.00% | Kaggle 114k Spotify tracks dataset. Dropped stray `Unnamed: 0` CSV index. |
-| **Step 3: Missing Value Handling** | 114,000 | 0 dropped<br>(2 imputed) | 114,000 | 100.00% | Imputed 1 missing `artists` & 1 missing `album_name` with `"Unknown"`. Verified 0 NaNs in core audio features. |
-| **Step 4a: Exact `track_id` Deduplication** | 114,000 | **24,259** | 89,741 | 78.72% | Dropped identical Spotify track URI duplicates appearing across multiple genre playlists. |
-| **Step 4b: Song Version / Remaster Deduplication** | 89,741 | **8,708** | 81,033 | 71.08% | Stripped `- Remastered`, `- Live`, `- Radio Edit` suffixes; sorted by popularity desc; kept most popular version per artist. |
-| **Step 5a: Duration Outliers** | 81,033 | **15** | 81,018 | 71.07% | Dropped tracks with `duration_ms <= 30,000` (short intros, sound effects, corrupted audio fragments). |
-| **Step 5b: Tempo Outliers** | 81,018 | **143** | 80,875 | 70.94% | Dropped tracks with `tempo < 30` or `tempo > 250` BPM (tempo extraction failure / implausible cadence). |
-| **Step 5c: Zero-Popularity Filter** *(Toggleable)* | 80,875 | **4,772** | **76,103** | **66.76%** | Dropped untouched/unpromoted tracks with `popularity == 0` (sampling noise vs listener preference). |
+| **0. Raw Ingestion** (`dataset.csv`) | 114,000 | 0 | 114,000 | 100.00% | Ingested Kaggle 114k tracks dataset. Removed redundant `Unnamed: 0` CSV index. |
+| **Step 3: Missing Value Handling** | 114,000 | 0 filtered<br>(2 imputed) | 114,000 | 100.00% | Imputed 1 missing `artists` & 1 missing `album_name` with `"Unknown"`. Audited 0 NaNs in core audio features. |
+| **Step 4a: Exact URI Deduplication** | 114,000 | **24,259** | 89,741 | 78.72% | Filtered duplicate Spotify track URIs repeated across genre playlist classifications. |
+| **Step 4b: Composition Deduplication** | 89,741 | **8,708** | 81,033 | 71.08% | Normalized titles (stripped `- Remastered`, `- Live`, `- Radio Edit`); resolved ties via `track_id`; preserved highest popularity cut. |
+| **Step 5a: Duration Filtering** | 81,033 | **15** | 81,018 | 71.07% | Filtered non-musical audio recordings with `duration_ms <= 30,000` ms (sound effects and calibration noise). |
+| **Step 5b: Tempo Plausibility** | 81,018 | **143** | 80,875 | 70.94% | Filtered tempo estimation anomalies outside plausible musical cadence `[30, 250]` BPM. |
+| **Step 5c: Cold-Start Exposure Filter** | 80,875 | **4,772** | **76,103** | **66.76%** | Filtered unpromoted tracks with `popularity == 0` to remove algorithmic exposure bias. |
 
-**Net Result:** Cleaned dataset contains **76,103 rows and 43 columns** (37,897 rows dropped in total, 33.24% of original dataset).
+**Final Sanitized Dataset:** **76,103 observations and 43 attributes** (37,897 total observations filtered, 33.24% of raw corpus; 0 missing values).
 
 ---
 
-## 2. Step-by-Step Cleaning Decisions & Technical Rationale
+## 2. Technical Decisions & Methodological Rationale
 
 ### Step 1: Ingestion and Index Sanitization
-- **What was done:** Loaded `dataset.csv` (114,000 rows × 21 columns) and immediately dropped the `Unnamed: 0` column.
-- **Rationale:** `Unnamed: 0` is an artifact of saving a pandas DataFrame to CSV with `index=True`. Leaving it in adds redundant noise, consumes unnecessary memory, and creates potential indexing bugs downstream.
+- **Action:** Loaded `dataset.csv` (114,000 rows × 21 columns) and immediately dropped `Unnamed: 0`.
+- **Rationale:** `Unnamed: 0` is an unintended artifact from prior CSV exports with default indexing (`index=True`). Removing it eliminates redundant memory overhead and prevents potential alignment errors in subsequent merges.
 
-### Step 2 & 3: Missing Value Strategy (Imputation vs. Dropping)
-- **What was done:**
-  - Imputed missing values in `artists` (1 row), `album_name` (1 row), and `track_name` (1 row) with the literal string `"Unknown"`.
-  - Audited core audio features (`danceability`, `energy`, `tempo`, `valence`, `loudness`, `acousticness`) and the target variable (`popularity`). Confirmed **0 missing values** existed in these columns.
-- **Rationale:** Metadata fields (artist/album name) are non-critical descriptors; dropping an entire song row for an absent album name throws away legitimate acoustic measurement data. Conversely, core audio features and popularity cannot be synthetically imputed without introducing severe bias into Person C's regression models.
+### Steps 2 & 3: Missing Value Strategy (Imputation vs. Deletion)
+- **Action:**
+  - Imputed missing values in `artists` (1 row), `album_name` (1 row), and `track_name` (1 row) with `"Unknown"`.
+  - Audited core continuous audio attributes (`danceability`, `energy`, `tempo`, `valence`, `loudness`, `acousticness`) and target variable (`popularity`), verifying **0 missing values**.
+- **Rationale:** Text metadata fields are descriptive identifiers; deleting an observation because of an unindexed album title discards valid acoustic measurements. Conversely, missing acoustic features or target popularity cannot be synthetically imputed without distorting empirical distributions.
 
-### Step 4: Two-Tier Deduplication Strategy
-- **Tier 1 (Exact `track_id`):**
-  - **Count dropped:** 24,259 rows (21.28% of the raw data).
-  - **Rationale:** Spotify's catalog categorizes identical songs under multiple `track_genre` labels (e.g., the same track listed under both `pop` and `dance`). Keeping duplicate track IDs artificially inflates sample size, violates the i.i.d. (independent and identically distributed) assumption of regression models, and leads to data leakage during train/test splits.
-- **Tier 2 (Fuzzy Title / Remaster Normalization with Deterministic Tie-Breaker):**
-  - **Count dropped:** 8,708 rows.
-  - **Rationale & Reproducibility Fix:** Artists frequently release standard, deluxe, remastered (e.g., "- Remastered 2011"), live, and radio edit versions of the exact same song. These versions share near-identical acoustic properties but carry fragmented popularity scores. By stripping regex suffixes (`r"\s*-\s*(Remaster(ed)?|Live|Radio Edit).*"`), sorting by `["popularity", "track_id"]` (descending popularity, ascending `track_id`), and retaining the first occurrence per `[track_name_clean, artists]`, we preserve the primary, most representative version of each distinct musical composition.
-  - **Why the `track_id` tiebreaker is critical:** Exactly **997 duplicate groups** share an identical maximum popularity score. Without sorting on `track_id` as a secondary key, pandas' default quicksort does not guarantee sort stability, causing slight variations in which tied version survives across different OS/Python/pandas versions. Adding `track_id` ensures 100% bit-for-bit deterministic reproducibility everywhere.
+### Step 4: Two-Tier Deterministic Deduplication
+- **Tier 1 (Exact Spotify `track_id`):**
+  - **Count filtered:** 24,259 observations (21.28% of corpus).
+  - **Rationale:** Spotify’s catalog indexes the same song across multiple playlist genres (e.g., a track categorized under both `pop` and `dance`). Keeping exact duplicate IDs artificially inflates sample size, distorts standard errors, and introduces train-test data leakage.
+- **Tier 2 (Composition & Remaster Normalization with Deterministic Tiebreaker):**
+  - **Count filtered:** 8,708 observations.
+  - **Rationale & Reproducibility:** Artists release remastered editions, live recordings, and radio edits of the same underlying composition. By normalizing titles (regex stripping `r"\s*-\s*(Remaster(ed)?|Live|Radio Edit).*"`), sorting by `["popularity", "track_id"]` (descending popularity, ascending `track_id`), and retaining the first occurrence per `[track_name_clean, artists]`, the primary version is preserved.
+  - **Why the `track_id` tiebreaker is essential:** Exactly **997 duplicate groups** share an identical maximum popularity score. Without a secondary unique key, quicksort instability leads to non-deterministic row selection across different operating systems. Incorporating `track_id` guarantees 100% bit-for-bit reproducibility.
 
 ### Step 5: Domain-Specific Outlier Filtering
 - **Duration (`duration_ms > 30,000`):**
-  - **Count dropped:** 15 rows.
-  - **Rationale:** Any recording under 30 seconds is not a standard commercial song (e.g., silence calibration tracks, sound effect samples, or truncated album interludes).
+  - **Count filtered:** 15 observations.
+  - **Rationale:** Recordings under 30 seconds represent non-song audio fragments (spoken intros, silence calibration, or sound effects).
 - **Tempo (`tempo.between(30, 250)`):**
-  - **Count dropped:** 143 rows.
-  - **Rationale:** Human musical tempo typically falls between 40 and 220 BPM. Tempos below 30 BPM or above 250 BPM indicate Spotify acoustic algorithm failures (e.g., spoken word, octave-doubling errors, ambient noise).
-- **Popularity Zero Handling (`popularity > 0`):**
-  - **Count dropped:** 4,772 rows.
-  - **Rationale:** A popularity of 0 in the Spotify Web API represents an unindexed or newly uploaded track that was never surfaced by the recommendation algorithm to register user impressions (cold-start / exposure bias). Including these tracks confuses Person C's regression model, teaching it to correlate acoustic features with zero visibility rather than consumer preference.
-  - **Configurability:** Controlled via `DROP_ZERO_POPULARITY = True` at the top of `phase1_preprocessing.py` so Person C can toggle it to `False` if experimenting with unrated distributions.
+  - **Count filtered:** 143 observations.
+  - **Rationale:** Standard musical tempo spans 40 to 220 BPM. Tempos below 30 BPM or above 250 BPM indicate audio feature extraction failures (e.g., ambient silence or octave-doubling errors).
+- **Cold-Start Exposure Filtering (`popularity > 0`):**
+  - **Count filtered:** 4,772 observations.
+  - **Rationale:** In the Spotify Web API, a popularity score of 0 represents an unindexed or newly uploaded track that received zero algorithmic promotion. Including zero-popularity tracks introduces platform exposure bias into predictive regression models, causing them to model lack of distribution rather than acoustic appeal.
 
-### Step 6: Feature Scaling & Model Artifact Serialization
-- **What was done:** Standardized 9 continuous numeric features (`danceability`, `energy`, `loudness`, `speechiness`, `acousticness`, `instrumentalness`, `liveness`, `valence`, `tempo`) using `StandardScaler` (zero mean, unit variance). Serialized the fitted scaler to `scaler.pkl` with `joblib`.
+### Step 6: Feature Standardization (StandardScaler)
+- **Action:** Standardized 9 continuous features (`danceability`, `energy`, `loudness`, `speechiness`, `acousticness`, `instrumentalness`, `liveness`, `valence`, `tempo`) to zero mean and unit variance ($\mu = 0, \sigma = 1$). Persisted the fitted transformer to `scaler.pkl`.
 - **Rationale:**
-  - Loudness (dB, typically -60 to 0) and duration/tempo operate on radically larger scales than bounded audio features (0.0 to 1.0). Unscaled features distort Euclidean distance calculations in Person D's K-Means clustering.
-  - **Critical Handoff:** Saving `scaler.pkl` ensures Person D transforms new cluster data using the *exact training parameters* ($\mu, \sigma$) rather than committing data leakage or schema mismatch by refitting a new scaler.
+  - Continuous metrics operate across disparate scales (e.g., loudness in negative decibels [-60 to 0 dB], tempo in BPM [30 to 250], and valence bounded in [0, 1]). Normalization prevents features with large magnitudes from dominating Euclidean distance metrics during clustering.
+  - Persisting `scaler.pkl` ensures downstream clustering and production models use the exact baseline parameters without refitting, eliminating data leakage.
 
 ### Step 7: Categorical Encoding & Multicollinearity Prevention
-- **What was done:**
-  - Cast `explicit` boolean to integer `(0 / 1)`.
-  - One-hot encoded `key` (12 musical pitches, 0–11) and `mode` (Major=1, Minor=0) using `pd.get_dummies(..., drop_first=True)`.
+- **Action:** Converted `explicit` to binary integer ($0 / 1$). One-hot encoded `key` (12 pitch classes) and `mode` (Major/Minor) using `pd.get_dummies(..., drop_first=True)`.
 - **Rationale:**
-  - **The Dummy Variable Trap:** Musical key has 12 discrete states. If all 12 binary dummy columns were included alongside an intercept term, $\sum_{i=0}^{11} \text{key}_i = 1$, introducing perfect linear dependency (multicollinearity).
-  - Person C's downstream Ordinary Least Squares (`statsmodels.api.OLS`) requires an invertible covariance matrix $(X^T X)^{-1}$. Without `drop_first=True`, the matrix is singular, immediately crashing the regression with a `LinAlgError / Singular Matrix` failure. `key_0` and `mode_0` serve as the statistical reference baselines.
+  - **The Dummy Variable Trap:** Including all $k$ binary indicators alongside a constant intercept generates exact linear dependency ($\sum \text{key}_i = 1$).
+  - Ordinary Least Squares (OLS) regression requires the design matrix $(X^TX)$ to be full rank and strictly invertible. Applying `drop_first=True` establishes a reference category (`key_0` and `mode_0`), preventing singular matrix (`LinAlgError`) failures.
 
-### Step 8: Domain-Specific Feature Engineering
-- **`energy_valence` ($= \text{energy} \times \text{valence}$):** An interaction term capturing intense positive emotionality (high energy + happy mood) vs calm or melancholic profiles.
-- **`tempo_bucket` (`slow`: 0–90, `mid`: 90–130, `fast`: 130–300 BPM):** Categorical discretization enabling intuitive dashboard slicers for Person D's Power BI report.
-- **`mood_score` ($= 0.5 \times \text{valence} + 0.3 \times \text{energy} + 0.2 \times \text{danceability}$):** A composite positive valence index weighting valence primary, rhythm secondary, and danceability tertiary.
+### Step 8: Domain Feature Engineering
+- **`energy_valence`** ($= \text{energy} \times \text{valence}$): Interaction metric modeling high-arousal positive affect.
+- **`tempo_bucket`**: Discretization into categorical cadence classes (`slow`: $\le 90$, `mid`: $90–130$, `fast`: $> 130$ BPM).
+- **`mood_score`** ($= 0.5 \times \text{valence} + 0.3 \times \text{energy} + 0.2 \times \text{danceability}$): Composite mood index emphasizing emotional valence, rhythmical energy, and rhythmic regularity.
 
 ---
 
 ## 3. Dataset Integrity & Schema Audit
 
-### A. Mathematical Column Count Verification (43 Columns)
-Every column in `cleaned_tracks.csv` is accounted for:
-- **20** Original raw columns (`track_id`, `artists`, `album_name`, `track_name`, `popularity`, `duration_ms`, `explicit`, `danceability`, `energy`, `loudness`, `speechiness`, `acousticness`, `instrumentalness`, `liveness`, `valence`, `tempo`, `time_signature`, `track_genre`, plus `key` & `mode` before encoding, minus dropped `Unnamed: 0`)
-- **+ 1** `track_name_clean` (regex cleaned title for deduplication)
-- **+ 9** Scaled audio features (`danceability_scaled`, `energy_scaled`, `loudness_scaled`, `speechiness_scaled`, `acousticness_scaled`, `instrumentalness_scaled`, `liveness_scaled`, `valence_scaled`, `tempo_scaled`)
-- **- 2** Raw `key` and `mode` columns (dropped by `pd.get_dummies`)
-- **+ 12** Dummy indicator columns (11 for `key_1` through `key_11`; 1 for `mode_1` — `key_0` and `mode_0` omitted via `drop_first=True`)
-- **+ 3** Domain-engineered features (`energy_valence`, `tempo_bucket`, `mood_score`)
-- **Formula:** $20 + 1 + 9 - 2 + 12 + 3 = \mathbf{43\text{ columns}}$.
+### A. Mathematical Column Count Verification (43 Attributes)
+$$\begin{aligned}
+\mathbf{20} & \quad \text{Initial attributes (excluding dropped } \texttt{Unnamed: 0}\text{)} \\
++\; \mathbf{1} & \quad \texttt{track\_name\_clean}\text{ (normalized title for composition deduplication)} \\
++\; \mathbf{9} & \quad \text{Standardized feature metrics (}\texttt{<feature>\_scaled}\text{)} \\
+-\; \mathbf{2} & \quad \text{Original categorical attributes (}\texttt{key}\text{, }\texttt{mode}\text{ removed by dummy encoding)} \\
++\; \mathbf{12} & \quad \text{Binary dummy columns (11 for key: }\texttt{key\_1}\dots\texttt{key\_11}\text{, 1 for mode: }\texttt{mode\_1}\text{; reference dropped)} \\
++\; \mathbf{3} & \quad \text{Engineered attributes (}\texttt{energy\_valence}\text{, }\texttt{tempo\_bucket}\text{, }\texttt{mood\_score}\text{)} \\
+\hline
+=\; \mathbf{43} & \quad \textbf{Final column count in } \texttt{cleaned\_tracks.csv}
+\end{aligned}$$
 
-### B. Zero Missing Values & `pd.cut` Boundary Verification
-- **Total Missing Values Across All Cells:** **`0`** (`df.isnull().sum().sum() == 0`).
-- **`pd.cut` Boundary Safety Audit:** `pd.cut` silently assigns `NaN` if any numeric value falls outside the predefined bin edges (`[0, 90, 130, 300]`).
-  - Empirical tempo range in cleaned dataset: **Min = 30.322 BPM, Max = 243.372 BPM**.
-  - Because Step 5b strictly filters tempos outside `[30, 250]`, 100% of rows fall well within the bin edges $(0, 300]$.
-  - Result: `df['tempo_bucket'].isnull().sum() == 0` (0 nulls produced; **11,050 slow, 36,444 mid, 28,609 fast**).
-
----
-
-## 4. Viva Defense Q&A (Preparation for Examiners)
-
-### Q1: "Why did you drop nearly 38,000 rows (33%) from the original dataset?"
-> **Answer:** *"The raw Kaggle dataset contained 114,000 records, but over 24,000 were exact duplicate track IDs resulting from tracks appearing across multiple genre playlists. Another 8,700 were duplicate releases of the exact same composition (such as remaster and live re-issues). Retaining duplicate tracks would artificially skew statistical tests and cause train-test data leakage. Furthermore, removing 4,772 zero-popularity tracks and 158 extreme duration/tempo anomalies ensured that our downstream regression models learn true acoustic determinants of popularity rather than audio artifacts or cold-start exposure noise."*
-
-### Q2: "Why did you use `drop_first=True` when one-hot encoding key and mode?"
-> **Answer:** *"In linear regression, including all $k$ levels of a categorical variable alongside a constant intercept term creates exact linear dependency, known as the dummy variable trap. For key (12 pitches) and mode (2 states), the sum of each group's dummies equals 1. By setting `drop_first=True`, we omit the first level as the reference baseline, guaranteeing that the feature matrix $X^TX$ remains full rank and strictly invertible for Person C's OLS regression."*
-
-### Q3: "Why did Person A save `scaler.pkl` instead of letting Person D fit their own scaler in Phase 4?"
-> **Answer:** *"Fitting a separate scaler in Phase 4 would violate sound data science protocol. Preprocessing parameters (the exact mean and standard deviation of each audio feature) must be computed once during the data preparation phase and applied consistently across all downstream consumers. Persisting `scaler.pkl` guarantees that Person D's K-Means clustering and any future production inference evaluate features on the exact same scale."*
-
-### Q4: "Why did you impute missing album and artist names with 'Unknown' instead of dropping those rows?"
-> **Answer:** *"Only 1 track lacked artist metadata and 1 lacked album metadata, while their core acoustic measurements (danceability, tempo, energy) were 100% complete and valid. Dropping an entire audio observation for missing descriptive text discards valuable empirical signal. Imputing 'Unknown' preserves the sample size without distorting numerical feature distributions."*
-
-### Q5: "How did you guarantee 100% reproducibility in your deduplication step across different operating systems?"
-> **Answer:** *"In Step 4b, 997 duplicate song groups tie on their maximum popularity value. Sorting solely on popularity leaves ties unresolved, leading to quicksort instability where different pandas installations or architectures pick different surviving rows. By sorting on `['popularity', 'track_id']` (descending on popularity, ascending on the unique Spotify `track_id`), every tie is resolved deterministically, guaranteeing exact bit-for-bit reproducible data and tempo-bucket counts everywhere."*
+### B. Zero Missing Values & Boundary Verification
+- **Total Missing Values Across Dataset:** **`0`** (`df.isnull().sum().sum() == 0`).
+- **`pd.cut` Boundary Verification:** `pd.cut` assigns `NaN` to any values outside the defined bin edges (`[0, 90, 130, 300]`).
+  - Observed tempo range: **Min = 30.322 BPM, Max = 243.372 BPM**.
+  - Because Step 5b filtered tempos outside `[30, 250]` BPM, all observations fall within $(0, 300]$, producing exactly 0 nulls (`slow`: **11,050**, `mid`: **36,444**, `fast`: **28,609**).
 
 ---
 
-## 5. Handoff Checklist for Teammates
+## 4. Technical Defense & Methodology Justifications
 
-- [x] **`cleaned_tracks.csv`** (76,103 rows, 43 columns, 0 nulls) -> Handed off to **Person B (EDA)** & **Person C (Modeling)**
-- [x] **`scaler.pkl`** (Fitted `StandardScaler`, 9 audio features) -> Handed off to **Person C** & **Person D (Power BI / K-Means)**
-- [x] **`cleaning_decision_log.md`** -> Handed off to **All Team Members** for viva preparation
+### Q1: "Why were approximately 38,000 observations (33%) filtered from the corpus?"
+> **Methodological Justification:** *"The raw Kaggle dataset contained 24,259 exact duplicate track IDs resulting from cross-playlist classification, and 8,708 redundant remaster/live versions. Retaining duplicates introduces train-test data leakage and artificially compresses standard errors. Furthermore, filtering non-musical recordings (<30s, extreme tempo errors) and 4,772 unpromoted 0-popularity tracks ensures downstream predictive models capture true acoustic drivers of popularity rather than platform exposure artifacts."*
+
+### Q2: "Why was `drop_first=True` mandatory during categorical dummy encoding?"
+> **Methodological Justification:** *"In linear regression, including all $k$ levels of a categorical attribute alongside an intercept creates the dummy variable trap (perfect collinearity), making the covariance matrix $(X^TX)$ non-invertible. Setting `drop_first=True` leaves one baseline category as the reference, ensuring the design matrix is full rank and avoiding singular-matrix errors in OLS regression."*
+
+### Q3: "Why is `scaler.pkl` serialized and reused rather than refit downstream?"
+> **Methodological Justification:** *"Feature normalization parameters ($\mu, \sigma$) must be computed strictly on the baseline preprocessing distribution. Re-fitting a scaler in subsequent clustering or inference introduces data leakage and creates scale misalignment across project modules."*
+
+### Q4: "Why impute missing metadata with 'Unknown' rather than discarding the rows?"
+> **Methodological Justification:** *"Only 1 observation lacked artist metadata and 1 lacked album metadata, while their acoustic measurements were 100% complete and valid. Discarding empirical acoustic observations for non-critical descriptive text causes unnecessary information loss. Imputing 'Unknown' preserves statistical sample size without biasing numerical distributions."*
+
+### Q5: "How was deterministic reproducibility achieved in composition deduplication?"
+> **Methodological Justification:** *"Across the dataset, 997 duplicate groups share an identical maximum popularity score. Sorting solely on popularity leaves ties unresolved, leading to quicksort instability where different pandas installations select different surviving rows. By sorting on `['popularity', 'track_id']` (popularity descending, unique Spotify track URI ascending), every tie is resolved deterministically, ensuring exact bit-for-bit reproducibility everywhere."*
+
+---
+
+## 5. Artifact Sign-Off & Deliverables
+
+- [x] **`cleaned_tracks.csv`** (76,103 rows, 43 columns, 0 nulls) — Primary dataset for EDA and Predictive Modeling
+- [x] **`scaler.pkl`** (StandardScaler artifact, 9 features) — Normalized transformer for K-Means clustering
+- [x] **`cleaning_decision_log.md`** — Comprehensive methodology audit and defense reference
+- [x] **`phase1_preprocessing.py`** — Headless execution script with row tracking
+- [x] **`phase1_preprocessing.ipynb`** — Executed Jupyter notebook with pre-rendered outputs
