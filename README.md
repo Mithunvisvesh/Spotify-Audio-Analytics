@@ -8,7 +8,7 @@ An end-to-end data science project analyzing acoustic audio descriptors from Spo
 
 ---
 
-## 📌 Modular Project Architecture & Roadmap
+## Modular Project Architecture & Roadmap
 
 | Module | Focus Area | Course Outcome | Core Deliverables | Status |
 | :--- | :--- | :--- | :--- | :---: |
@@ -17,11 +17,11 @@ An end-to-end data science project analyzing acoustic audio descriptors from Spo
 | **Phase 3** | **Supervised Predictive Modeling & OLS Diagnostics** | **CO4** (Predictive Modeling) | `phase3_modeling.ipynb`, Linear/Ridge/Lasso/RF comparison, Residual/Q-Q diagnostics, `rf_model.pkl` | *Ready to Start* |
 | **Phase 4** | **Power BI Interactive Dashboard & Mood Clustering** | **CO3** (Data Integration & BI) | `spotify_dashboard.pbix`, K-Means clustering ($k=4$), Final report & slide integration | *Ready to Start* |
 
-> 📘 **Modular Implementation Guide:** For comprehensive specifications, code architectures, and rubrics for all phases, refer to **[PHASE_HANDOFF_GUIDE.md](PHASE_HANDOFF_GUIDE.md)**.
+>  **Modular Implementation Guide:** For comprehensive specifications, code architectures, and rubrics for all phases, refer to **[PHASE_HANDOFF_GUIDE.md](PHASE_HANDOFF_GUIDE.md)**.
 
 ---
 
-## 📊 Phase 1: Data Acquisition & Preprocessing Summary
+##  Phase 1: Data Acquisition & Preprocessing Summary
 
 Phase 1 provides the mathematical and data foundation for all downstream predictive models and dashboards.
 
@@ -60,7 +60,7 @@ Spotify-Audio-Analytics/
 
 ---
 
-## 🚀 Environment Setup & Reproduction
+##  Environment Setup & Reproduction
 
 ### 1. Set Up Environment
 ```bash
@@ -88,7 +88,7 @@ jupyter notebook phase1_preprocessing.ipynb
 
 ---
 
-## 🎓 Technical & Methodological Defense (Viva Preparation)
+##  Technical & Methodological Defense (Viva Preparation)
 
 1. **Why filter approximately 38,000 observations (33%)?**  
    *24,259 records were duplicate track IDs resulting from tracks being tagged in multiple genre playlists, and 8,708 were redundant remaster/live releases. Removing duplicates plus extreme audio anomalies (<30s, invalid tempos) and 4,772 unpromoted 0-popularity tracks prevents exposure bias and train-test data leakage.*
